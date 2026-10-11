@@ -62,6 +62,20 @@
           <input id="layer" type="range" min="0" max="11" step="1" />
           <span id="layer-descriptor"></span>
         </div>
+        <div id="toggles">
+          <label
+            class="toggle"
+            title="The first word absorbs a large, uninformative share of attention (an 'attention sink'). Hiding it drops that word's links and re-scales the rest so the meaningful attention stands out."
+          >
+            <input type="checkbox" id="hide-sink" /> Hide attention sink
+          </label>
+          <label
+            class="toggle"
+            title="Show attention averaged across all layers instead of the single layer chosen by the slider."
+          >
+            <input type="checkbox" id="avg-layers" checked /> Average all layers
+          </label>
+        </div>
         <span id="status"></span>
       </footer>
     </div>

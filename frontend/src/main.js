@@ -21,6 +21,8 @@ const els = {
   layer: $("layer"),
   layerValue: $("layer-value"),
   layerDescriptor: $("layer-descriptor"),
+  hideSink: $("hide-sink"),
+  avgLayers: $("avg-layers"),
   status: $("status"),
   loading: $("loading"),
   loadingText: $("loading-text"),
@@ -38,7 +40,7 @@ const els = {
 const state = {
   modelReady: false,
   generating: false, // true from the moment Generate is pressed until settled
-  stopRequested: false,
+  skipRequested: false, // user asked to skip the slow animation → final view
   data: null,
   modelName: "the model",
 };
@@ -111,15 +113,28 @@ function layerDescriptor(layer, numLayers) {
 function syncLayerUI() {
   if (!state.data) return;
   const n = state.data.numLayers;
+  const avg = els.avgLayers.checked;
   els.layer.min = "0";
   els.layer.max = String(n - 1);
   els.layer.value = String(galaxy.currentLayer);
-  els.layerValue.textContent = `${galaxy.currentLayer + 1} / ${n}`;
-  els.layerDescriptor.textContent = layerDescriptor(galaxy.currentLayer, n);
+  els.layer.disabled = avg; // slider is meaningless while averaging all layers
+  els.layerValue.textContent = avg ? "avg" : `${galaxy.currentLayer + 1} / ${n}`;
+  els.layerDescriptor.textContent = avg
+    ? "averaging all layers"
+    : layerDescriptor(galaxy.currentLayer, n);
 }
 
 els.layer.addEventListener("input", () => {
   galaxy.setLayer(parseInt(els.layer.value, 10));
+  syncLayerUI();
+});
+
+// Attention display toggles.
+els.hideSink.addEventListener("change", () => {
+  galaxy.setHideSink(els.hideSink.checked);
+});
+els.avgLayers.addEventListener("change", () => {
+  galaxy.setAvgLayers(els.avgLayers.checked);
   syncLayerUI();
 });
 
@@ -132,9 +147,9 @@ function setLoading(on, text = "Thinking…") {
 /** Toggle the UI between idle and "generating" (inference + animation). */
 function setGenerating(on) {
   state.generating = on;
-  els.generate.textContent = on ? "■ Stop" : "Generate";
-  els.generate.classList.toggle("stop", on);
-  els.generate.disabled = !state.modelReady; // stays clickable (to Stop)
+  els.generate.textContent = on ? "⏭ Skip" : "Generate";
+  els.generate.classList.toggle("skip", on);
+  els.generate.disabled = !state.modelReady; // stays clickable (to Skip)
   els.prompt.disabled = on || !state.modelReady;
   els.replay.disabled = on || !state.data;
   els.cursor.style.display = on ? "inline" : "none";
@@ -155,16 +170,22 @@ function showFinalView(data) {
   galaxy.showFinal();
 }
 
-/** Stop an in-progress generation and jump to the explorable final view. */
-function requestStop() {
+/**
+ * Skip the slow word-by-word animation and jump to the final, explorable galaxy.
+ * The model still generates the WHOLE sentence first: if inference is already
+ * done (animation playing) we settle instantly; if it's still running we wait
+ * for it to finish, showing the loading spinner meanwhile.
+ */
+function requestSkip() {
   if (!state.generating) return;
-  state.stopRequested = true;
+  state.skipRequested = true;
   if (galaxy.running) {
-    galaxy.finish(); // animation playing → settle instantly
+    galaxy.finish(); // animation already playing → jump to the final state
   } else {
-    // Inference still running; it will settle shortly once the loop breaks.
-    els.generate.textContent = "Stopping…";
+    // Inference still running: let it finish, then settle directly.
+    els.generate.textContent = "Finishing…";
     els.generate.disabled = true;
+    setLoading(true, "Finishing the sentence…");
   }
 }
 
@@ -178,17 +199,18 @@ async function runGenerate() {
     els.status.textContent = "Type a prompt first.";
     return;
   }
-  state.stopRequested = false;
+  state.skipRequested = false;
   setGenerating(true);
   setLoading(true, "Running the model in your browser…");
   els.status.textContent = "";
   try {
-    const data = await generate(prompt, { shouldStop: () => state.stopRequested });
+    // Always generate the full sentence; skipping only affects the animation.
+    const data = await generate(prompt);
     setLoading(false);
-    if (state.stopRequested) {
-      showFinalView(data); // user asked to stop → settle right away
+    if (state.skipRequested) {
+      showFinalView(data); // skip the animation → final view directly
     } else {
-      loadData(data); // play the animation
+      loadData(data); // play the word-by-word animation
     }
   } catch (err) {
     setLoading(false);
@@ -200,7 +222,7 @@ async function runGenerate() {
 
 // -------------------------------------------------------------- controls
 els.generate.addEventListener("click", () => {
-  if (state.generating) requestStop();
+  if (state.generating) requestSkip();
   else runGenerate();
 });
 els.prompt.addEventListener("keydown", (e) => {
@@ -208,7 +230,7 @@ els.prompt.addEventListener("keydown", (e) => {
 });
 els.replay.addEventListener("click", () => {
   if (state.generating || !state.data) return;
-  state.stopRequested = false;
+  state.skipRequested = false;
   setGenerating(true);
   galaxy.replay();
 });
@@ -247,6 +269,10 @@ async function init() {
   els.prompt.disabled = true;
   els.generate.disabled = true;
   els.replay.disabled = true;
+
+  // Mirror the toggles' initial checked state into the renderer.
+  galaxy.setAvgLayers(els.avgLayers.checked);
+  galaxy.setHideSink(els.hideSink.checked);
 
   // Fetch the tiny local metadata (NOT the big weights) so the gate can name the
   // real model and layer count before the user commits to the download.

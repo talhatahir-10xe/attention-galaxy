@@ -121,6 +121,8 @@ export class Galaxy {
 
     this.currentLayer = 0;
     this.beautiful = true; // Phase 2 visuals on by default
+    this.hideSink = false; // drop token 0 (the "attention sink") and renormalise
+    this.avgLayers = true; // show attention averaged over ALL layers (default on)
 
     // animation / run state
     this.running = false;
@@ -269,19 +271,62 @@ export class Galaxy {
    * excluded so the beams of one word add up to 100%).
    * @returns {Array<{j:number, w:number}>} sorted by weight desc
    */
-  lookback(i, layer = this.currentLayer) {
-    const row = this.data?.attention?.byLayer?.[layer]?.[i];
+  lookback(i, layer = this.currentLayer, opts = {}) {
+    // Display calls default to honouring the toggles; the physics layout passes
+    // {avg:false, hideSink:false} so the star positions never shift when a
+    // toggle changes.
+    const avg = opts.avg ?? this.avgLayers;
+    const hideSink = opts.hideSink ?? this.hideSink;
+    const row = avg ? this._avgRow(i) : this.data?.attention?.byLayer?.[layer]?.[i];
     if (!row) return [];
-    const out = [];
+
+    // Optionally drop token 0 — the "attention sink" that soaks up a large,
+    // uninformative share of every word's attention — then renormalise the rest
+    // so the meaningful look-back links stand out.
+    const startJ = hideSink && i >= 2 ? 1 : 0;
+    let out = [];
     let sum = 0;
-    for (let j = 0; j < i; j++) {
+    for (let j = startJ; j < i; j++) {
       const w = row[j] || 0;
       out.push({ j, w });
       sum += w;
     }
+    // If removing the sink left nothing meaningful, fall back to including it.
+    if (sum <= 0 && startJ > 0) {
+      out = [];
+      for (let j = 0; j < i; j++) {
+        const w = row[j] || 0;
+        out.push({ j, w });
+        sum += w;
+      }
+    }
     if (sum > 0) for (const o of out) o.w /= sum;
     out.sort((a, b) => b.w - a.w);
     return out;
+  }
+
+  /** Mean attention row for token `i` across ALL layers (for "average layers"). */
+  _avgRow(i) {
+    const byLayer = this.data?.attention?.byLayer;
+    if (!byLayer || !byLayer.length) return null;
+    let ref = null;
+    for (let l = 0; l < byLayer.length; l++) {
+      if (byLayer[l]?.[i]) {
+        ref = byLayer[l][i];
+        break;
+      }
+    }
+    if (!ref) return null;
+    const avg = new Array(ref.length).fill(0);
+    let count = 0;
+    for (let l = 0; l < byLayer.length; l++) {
+      const r = byLayer[l]?.[i];
+      if (!r) continue;
+      for (let j = 0; j < r.length; j++) avg[j] += r[j];
+      count++;
+    }
+    if (count) for (let j = 0; j < avg.length; j++) avg[j] /= count;
+    return avg;
   }
 
   // ------------------------------------------------------------------ run
@@ -485,6 +530,14 @@ export class Galaxy {
     this.beautiful = !!on;
   }
 
+  setHideSink(on) {
+    this.hideSink = !!on;
+  }
+
+  setAvgLayers(on) {
+    this.avgLayers = !!on;
+  }
+
   // ------------------------------------------------------------------ input
   _evtPos(e) {
     const rect = this.canvas.getBoundingClientRect();
@@ -578,8 +631,9 @@ export class Galaxy {
         fy += (dy / d) * f;
       }
 
-      // attention attraction (layout layer only, to attended earlier words)
-      const lb = this.lookback(n.index, layout);
+      // attention attraction (layout layer only, to attended earlier words).
+      // Fixed layer, no toggles → stars never shift when a toggle changes.
+      const lb = this.lookback(n.index, layout, { avg: false, hideSink: false });
       for (const { j, w } of lb) {
         const m = this.nodes[j];
         if (!m || !m.landed || m.x === undefined) continue;
@@ -683,8 +737,52 @@ export class Galaxy {
     this._drawParticles();
     this._drawStars(geom, now);
     this._drawFlyNode(now);
+    this._drawGalaxyLegend(geom);
     this._drawPanel(geom, now);
     this._drawDivider(geom);
+  }
+
+  // A small always-on legend over the galaxy that tells non-technical users what
+  // the link numbers mean, and how the slider / toggles below change them.
+  _drawGalaxyLegend(geom) {
+    const ctx = this.ctx;
+    const g = geom.galaxy;
+    const cx = g.x0 + g.w / 2;
+
+    const line1 =
+      "The % on each link is attention — how much a word looks back at an earlier word";
+    const n = this.data.numLayers;
+    const line2 = this.avgLayers
+      ? `Averaged across all ${n} layers · use the slider below for a single layer`
+      : `Layer ${this.currentLayer + 1} of ${n} · change it with the slider, or “Average all layers”, below`;
+
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "600 12.5px Inter, system-ui, sans-serif";
+    const w1 = ctx.measureText(line1).width;
+    ctx.font = "500 12px Inter, system-ui, sans-serif";
+    const w2 = ctx.measureText(line2).width;
+    const boxW = Math.min(g.w, Math.max(w1, w2) + 30);
+    const boxH = 42;
+    const bx = cx - boxW / 2;
+    const by = 8;
+
+    ctx.fillStyle = "rgba(6,9,22,0.74)";
+    ctx.beginPath();
+    ctx.roundRect(bx, by, boxW, boxH, 10);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(122,162,255,0.22)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.font = "600 12.5px Inter, system-ui, sans-serif";
+    ctx.fillStyle = "#d4dcf7";
+    ctx.fillText(line1, cx, by + 15);
+    ctx.font = "500 12px Inter, system-ui, sans-serif";
+    ctx.fillStyle = this.avgLayers ? "#ffd37a" : "#8fa0d0";
+    ctx.fillText(line2, cx, by + 30);
+    ctx.restore();
   }
 
   _drawBackground() {
@@ -1065,7 +1163,7 @@ export class Galaxy {
       ctx.font = "500 13px Inter, system-ui, sans-serif";
       const explainer =
         `${modelShort} has ${this.data.numLayers} attention layers. ` +
-        `Use the slider below to see the attention any word pays — in any layer.`;
+        `Use the slider and toggles below to change which attention you see.`;
       let yy = 140;
       for (const line of wrapLines(ctx, explainer, innerW)) {
         ctx.fillText(line, padX, yy);
