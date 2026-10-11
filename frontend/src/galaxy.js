@@ -165,12 +165,37 @@ export class Galaxy {
     if (this.data) this._recomputeHomes();
   }
 
+  /**
+   * Portrait-ish viewport → stack the prediction panel OVER the galaxy (good for
+   * phones). Wide viewport → the panel sits to the LEFT of the galaxy (laptops /
+   * desktops). The choice is driven purely by the live aspect ratio, so it adapts
+   * to any screen size and to orientation changes — nothing is hard-coded to a
+   * particular resolution.
+   */
+  _stacked() {
+    return this.W / this.H < 1.1;
+  }
+
   // Geometry of the two regions (in CSS pixels).
   _geom() {
+    if (this._stacked()) {
+      const pad = 22;
+      const panelH = clamp(this.H * 0.44, 170, this.H - 150);
+      return {
+        stacked: true,
+        panel: { x: 0, y: 0, w: this.W, h: panelH },
+        galaxy: {
+          x0: pad,
+          y0: panelH + 50, // leave a band for the legend above the stars
+          w: this.W - pad * 2,
+          h: this.H - panelH - 64,
+        },
+      };
+    }
     const panelW = Math.max(200, this.W * PANEL_FRAC);
     const pad = 46;
     return {
-      panelW,
+      stacked: false,
       panel: { x: 0, y: 0, w: panelW, h: this.H },
       galaxy: {
         x0: panelW + pad,
@@ -481,11 +506,20 @@ export class Galaxy {
     const idx = s.generatedIndex;
     const node = this.nodes[idx];
     if (!node) return;
-    // Fly origin: the winner's row in the prediction panel.
+    // Fly origin: the winner's row in the prediction panel, leaving from the
+    // edge that faces the galaxy (right edge side-by-side, bottom edge stacked).
     const row = this._panelRows[0]; // winner is row 0 (sorted desc)
-    const from = row
-      ? { x: row.x + row.w, y: row.y + row.h / 2 }
-      : { x: this._geom().panelW, y: this.H / 2 };
+    const geom = this._geom();
+    let from;
+    if (row) {
+      from = geom.stacked
+        ? { x: row.x + row.w / 2, y: geom.panel.h }
+        : { x: row.x + row.w, y: row.y + row.h / 2 };
+    } else {
+      from = geom.stacked
+        ? { x: geom.galaxy.x0 + geom.galaxy.w / 2, y: geom.panel.h }
+        : { x: geom.panel.w, y: this.H / 2 };
+    }
     node.x = from.x;
     node.y = from.y;
     node.vx = node.vy = 0;
@@ -748,27 +782,48 @@ export class Galaxy {
     const ctx = this.ctx;
     const g = geom.galaxy;
     const cx = g.x0 + g.w / 2;
-
-    const line1 =
-      "The % on each link is attention — how much a word looks back at an earlier word";
     const n = this.data.numLayers;
-    const line2 = this.avgLayers
-      ? `Averaged across all ${n} layers · use the slider below for a single layer`
-      : `Layer ${this.currentLayer + 1} of ${n} · change it with the slider, or “Average all layers”, below`;
+    const stacked = geom.stacked;
+
+    // Full explanation on wide screens; a compact version when stacked (mobile).
+    const text1 = stacked
+      ? "Link % = attention to earlier words"
+      : "The % on each link is attention — how much a word looks back at an earlier word.";
+    const text2 = this.avgLayers
+      ? stacked
+        ? `Average of all ${n} layers`
+        : `Averaged over all ${n} layers · use the slider below for a single layer.`
+      : stacked
+      ? `Layer ${this.currentLayer + 1} / ${n}`
+      : `Layer ${this.currentLayer + 1} of ${n} · slider & “Average all layers” toggle below.`;
+
+    const f1 = "600 12.5px Inter, system-ui, sans-serif";
+    const f2 = "500 12px Inter, system-ui, sans-serif";
+    const lh = 16;
+    const maxLineW = Math.min(g.w * 0.94, 540) - 24;
 
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.font = "600 12.5px Inter, system-ui, sans-serif";
-    const w1 = ctx.measureText(line1).width;
-    ctx.font = "500 12px Inter, system-ui, sans-serif";
-    const w2 = ctx.measureText(line2).width;
-    const boxW = Math.min(g.w, Math.max(w1, w2) + 30);
-    const boxH = 42;
-    const bx = cx - boxW / 2;
-    const by = 8;
+    ctx.font = f1;
+    const lines1 = wrapLines(ctx, text1, maxLineW);
+    ctx.font = f2;
+    const lines2 = wrapLines(ctx, text2, maxLineW);
 
-    ctx.fillStyle = "rgba(6,9,22,0.74)";
+    let widest = 0;
+    ctx.font = f1;
+    for (const l of lines1) widest = Math.max(widest, ctx.measureText(l).width);
+    ctx.font = f2;
+    for (const l of lines2) widest = Math.max(widest, ctx.measureText(l).width);
+
+    const boxH = (lines1.length + lines2.length) * lh + 12;
+    const boxW = Math.min(g.w, widest + 24);
+    const bx = cx - boxW / 2;
+    // Stacked: tuck it into the reserved band just under the divider. Side: use
+    // the top margin above the stars.
+    const by = stacked ? geom.panel.h + 6 : Math.max(6, g.y0 - boxH - 4);
+
+    ctx.fillStyle = "rgba(6,9,22,0.78)";
     ctx.beginPath();
     ctx.roundRect(bx, by, boxW, boxH, 10);
     ctx.fill();
@@ -776,12 +831,19 @@ export class Galaxy {
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    ctx.font = "600 12.5px Inter, system-ui, sans-serif";
+    let ty = by + 6 + lh / 2;
+    ctx.font = f1;
     ctx.fillStyle = "#d4dcf7";
-    ctx.fillText(line1, cx, by + 15);
-    ctx.font = "500 12px Inter, system-ui, sans-serif";
+    for (const l of lines1) {
+      ctx.fillText(l, cx, ty);
+      ty += lh;
+    }
+    ctx.font = f2;
     ctx.fillStyle = this.avgLayers ? "#ffd37a" : "#8fa0d0";
-    ctx.fillText(line2, cx, by + 30);
+    for (const l of lines2) {
+      ctx.fillText(l, cx, ty);
+      ty += lh;
+    }
     ctx.restore();
   }
 
@@ -1108,8 +1170,13 @@ export class Galaxy {
     ctx.strokeStyle = "rgba(122,162,255,0.14)";
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(geom.panelW, 0);
-    ctx.lineTo(geom.panelW, this.H);
+    if (geom.stacked) {
+      ctx.moveTo(0, geom.panel.h);
+      ctx.lineTo(this.W, geom.panel.h);
+    } else {
+      ctx.moveTo(geom.panel.w, 0);
+      ctx.lineTo(geom.panel.w, this.H);
+    }
     ctx.stroke();
   }
 
@@ -1144,10 +1211,11 @@ export class Galaxy {
 
     this._panelRows = [];
 
+    const top = geom.stacked ? 56 : 64;
     if (spotlight) {
-      this._drawAttentionList(padX, innerW, 64);
+      this._drawAttentionList(padX, innerW, top);
     } else if (this.running) {
-      this._drawCandidates(padX, innerW, 64, now);
+      this._drawCandidates(padX, innerW, top, now);
     } else {
       // Settled after a generation: invite exploration and explain the slider.
       ctx.textAlign = "left";
@@ -1173,6 +1241,7 @@ export class Galaxy {
   }
 
   _rowMetrics(top, innerW) {
+    if (this._stacked()) return { rowH: 24, gap: 8, barH: 13, top, innerW };
     return { rowH: 30, gap: 14, barH: 16, top, innerW };
   }
 
@@ -1180,7 +1249,8 @@ export class Galaxy {
     const s = this._curStep();
     if (!s) return;
     const ctx = this.ctx;
-    const cands = s.candidates;
+    // Fewer rows when stacked (portrait) so they fit the shorter panel.
+    const cands = this._stacked() ? s.candidates.slice(0, 4) : s.candidates;
     const m = this._rowMetrics(top, innerW);
 
     // bar growth progress across predict/lock/fly
@@ -1263,7 +1333,9 @@ export class Galaxy {
 
   _drawAttentionList(padX, innerW, top) {
     const ctx = this.ctx;
-    const lb = this.lookback(this.selected).filter((o) => o.w > 0.001);
+    const all = this.lookback(this.selected).filter((o) => o.w > 0.001);
+    // Cap the list when stacked (portrait) so it fits the shorter panel.
+    const lb = this._stacked() ? all.slice(0, 5) : all;
     const m = this._rowMetrics(top, innerW);
 
     if (!lb.length) {

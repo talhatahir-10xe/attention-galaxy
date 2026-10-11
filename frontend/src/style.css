@@ -397,17 +397,50 @@ select {
   font-weight: 550;
 }
 
-@media (max-width: 560px) {
+/* Phones / narrow screens: slim the chrome so the canvas keeps more height,
+   and let the controls wrap compactly. The canvas itself switches to a
+   top/bottom (stacked) layout on its own, driven by its aspect ratio. */
+@media (max-width: 760px) {
+  #topbar {
+    padding: 8px 12px;
+    gap: 8px;
+  }
   #brand {
     font-size: 15px;
   }
+  #prompt-group {
+    min-width: 150px;
+  }
+  #prompt {
+    font-size: 14px;
+    padding: 8px 10px;
+  }
+  button {
+    padding: 8px 13px;
+    font-size: 13.5px;
+  }
   #caption {
     font-size: 16px;
+    padding: 8px 14px;
+  }
+  #controls {
+    gap: 8px;
+    padding: 8px 12px;
+  }
+  #layer-group,
+  .toggle {
+    padding: 5px 10px;
+    font-size: 12.5px;
   }
   #layer {
     width: 120px;
   }
   #layer-descriptor {
     display: none;
+  }
+  #status {
+    margin-left: 0;
+    flex-basis: 100%;
+    font-size: 12.5px;
   }
 }
