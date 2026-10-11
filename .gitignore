@@ -11,6 +11,10 @@ frontend/dist/
 # Exceeds GitHub's 100 MB file limit; kept locally for `npm run dev`.
 frontend/public/model/*.onnx
 
+# Internal working notes — kept locally, not published to the repo.
+SPEC.md
+PROGRESS.md
+
 # OS / editors
 .DS_Store
 *.log

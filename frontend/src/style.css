@@ -120,6 +120,12 @@ button:disabled {
   border: 1px solid var(--line);
 }
 
+/* Generate button turns into a Stop button while the model is predicting. */
+#generate.stop {
+  background: #ff6b6b;
+  color: #2a0808;
+}
+
 select {
   padding: 8px 10px;
   border-radius: 10px;
@@ -178,6 +184,78 @@ select {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* ---------- First-run download gate ---------- */
+#model-gate {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(5, 6, 15, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 10;
+}
+.gate-card {
+  width: 100%;
+  max-width: 440px;
+  text-align: center;
+  background: linear-gradient(180deg, #0d1130, #090b1c);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 34px 30px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+}
+.gate-icon {
+  font-size: 34px;
+  color: var(--accent-warm);
+  line-height: 1;
+}
+.gate-card h2 {
+  margin: 12px 0 10px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.gate-card p {
+  margin: 0 0 22px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-dim);
+}
+#download-model {
+  width: 100%;
+  padding: 13px 22px;
+  font-size: 15px;
+}
+#gate-progress {
+  margin-top: 4px;
+}
+.gate-bar {
+  height: 10px;
+  background: rgba(122, 162, 255, 0.12);
+  border-radius: 6px;
+  overflow: hidden;
+}
+#gate-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-warm));
+  border-radius: 6px;
+  transition: width 0.2s ease;
+}
+#gate-pct {
+  margin-top: 11px;
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+#gate-error {
+  margin: 14px 0 0;
+  font-size: 13px;
+  color: #ff9db1;
 }
 
 /* ---------- Caption ---------- */

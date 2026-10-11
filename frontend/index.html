@@ -30,6 +30,25 @@
       <main id="stage">
         <canvas id="canvas"></canvas>
         <div id="loading" hidden><span class="spinner"></span><span id="loading-text">Thinking…</span></div>
+
+        <!-- First-run gate: the model is downloaded only when the user asks. -->
+        <div id="model-gate" hidden>
+          <div class="gate-card">
+            <div class="gate-icon">✦</div>
+            <h2 id="gate-title">Run the model in your browser</h2>
+            <p id="gate-desc">
+              This visualizer runs a small language model entirely in your browser.
+              The weights download once, then everything runs locally — no server,
+              and nothing you type ever leaves your device.
+            </p>
+            <button id="download-model">Download model</button>
+            <div id="gate-progress" hidden>
+              <div class="gate-bar"><div id="gate-bar-fill"></div></div>
+              <div id="gate-pct">Starting…</div>
+            </div>
+            <p id="gate-error" hidden></p>
+          </div>
+        </div>
       </main>
 
       <!-- Caption: the sentence builds here -->

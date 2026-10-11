@@ -256,6 +256,9 @@ export async function generate(prompt, opts = {}) {
   const genIds = [];
 
   for (let step = 0; step < maxNew; step++) {
+    // Honour a stop request: break out and let the final forward pass below
+    // build attention for whatever we have so far, so the view is explorable.
+    if (opts.shouldStop && opts.shouldStop()) break;
     const out = await runForward(session, ids);
     const logits = out.logits.data; // Float32Array [1, seq, vocab]
     const vocab = out.logits.dims[out.logits.dims.length - 1];

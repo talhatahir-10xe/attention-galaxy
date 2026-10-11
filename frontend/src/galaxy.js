@@ -71,6 +71,25 @@ function displayText(text) {
   return t.trim() === "" ? t.replace(/ /g, "·") || "·" : t.trim();
 }
 
+// Greedy word-wrap for a canvas context: splits `text` into lines no wider
+// than `maxW` pixels (using the context's current font).
+function wrapLines(ctx, text, maxW) {
+  const words = text.split(" ");
+  const lines = [];
+  let cur = "";
+  for (const w of words) {
+    const test = cur ? cur + " " + w : w;
+    if (cur && ctx.measureText(test).width > maxW) {
+      lines.push(cur);
+      cur = w;
+    } else {
+      cur = test;
+    }
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
 function hexToRgba(hex, a) {
   const n = parseInt(hex.slice(1), 16);
   const r = (n >> 16) & 255;
@@ -304,6 +323,43 @@ export class Galaxy {
     this.play();
   }
 
+  /**
+   * Stop an in-progress animation and jump straight to the settled view (all
+   * current words placed and clickable). Safe to call when not running.
+   */
+  finish() {
+    this.showFinal();
+  }
+
+  /**
+   * Show the finished galaxy immediately: every token landed at its slot, no
+   * animation, ready for exploration. Used after a Stop, or to display a
+   * generation without replaying it.
+   */
+  showFinal() {
+    if (!this.data) return;
+    this.running = false;
+    this.step = 0;
+    this.phase = "idle";
+    this.flyNode = null;
+    this.selected = null;
+    const now = performance.now();
+    this.nodes.forEach((n) => {
+      n.landed = true;
+      n.born = now - 500; // already settled: skip the scale-in pop
+      if (n.x === undefined) {
+        n.x = n.homeX;
+        n.y = n.homeY;
+      }
+      n.vx = n.vy = 0;
+      n.pulse = 0;
+    });
+    this.landedCount = this.nodes.length;
+    this._updateCaption();
+    this.cb.onRunStateChange?.(false);
+    this.cb.onStatus?.("Click any star to explore its attention.");
+  }
+
   _enterPhase(phase) {
     this.phase = phase;
     this.phaseStart = performance.now();
@@ -369,7 +425,7 @@ export class Galaxy {
           this.running = false;
           this.phase = "idle";
           this.cb.onRunStateChange?.(false);
-          this.cb.onStatus?.("Done — click any star to explore its attention.");
+          this.cb.onStatus?.("Click any star to explore its attention.");
         }
         break;
     }
@@ -978,7 +1034,9 @@ export class Galaxy {
     ctx.textBaseline = "alphabetic";
     const title = spotlight
       ? `“${this.nodes[this.selected].label}” looks back at…`
-      : "predicting next word";
+      : this.running
+      ? "predicting next word"
+      : "explore attention";
     ctx.fillText(title.toUpperCase(), padX, 34);
     ctx.strokeStyle = "rgba(122,162,255,0.15)";
     ctx.beginPath();
@@ -993,13 +1051,25 @@ export class Galaxy {
     } else if (this.running) {
       this._drawCandidates(padX, innerW, 64, now);
     } else {
-      ctx.fillStyle = "#c3ccee";
+      // Settled after a generation: invite exploration and explain the slider.
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#ffd37a";
+      ctx.font = "700 17px Inter, system-ui, sans-serif";
+      ctx.fillText("★ Click any star", padX, 80);
+      ctx.fillStyle = "#eef2ff";
       ctx.font = "600 15px Inter, system-ui, sans-serif";
-      ctx.fillText("Press Generate to watch the model think.", padX, 74);
-      if (this.data.steps.length) {
-        ctx.fillStyle = "#9aa6d4";
-        ctx.font = "500 14px Inter, system-ui, sans-serif";
-        ctx.fillText("Then click any star to explore its attention.", padX, 98);
+      ctx.fillText("to explore its attention.", padX, 104);
+
+      const modelShort = (this.data.model || "This model").split("/").pop();
+      ctx.fillStyle = "#9aa6d4";
+      ctx.font = "500 13px Inter, system-ui, sans-serif";
+      const explainer =
+        `${modelShort} has ${this.data.numLayers} attention layers. ` +
+        `Use the slider below to see the attention any word pays — in any layer.`;
+      let yy = 140;
+      for (const line of wrapLines(ctx, explainer, innerW)) {
+        ctx.fillText(line, padX, yy);
+        yy += 19;
       }
     }
   }

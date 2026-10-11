@@ -1,9 +1,10 @@
 /**
  * Wiring: DOM controls, the Galaxy renderer, and in-browser inference.
  *
- * There is no backend — the model runs in the browser (infer.js). Bundled
- * examples render instantly as demos while the model downloads in the
- * background; once it's ready the prompt box generates for any input.
+ * There is no backend — the model runs in the browser (infer.js). The model is
+ * downloaded only when the user asks for it (the first-run gate), and the galaxy
+ * stays empty until the user presses Generate. While the model is predicting,
+ * the Generate button becomes a Stop button that settles the view immediately.
  */
 import "./style.css";
 import { Galaxy } from "./galaxy.js";
@@ -23,11 +24,23 @@ const els = {
   status: $("status"),
   loading: $("loading"),
   loadingText: $("loading-text"),
+  // first-run download gate
+  modelGate: $("model-gate"),
+  gateTitle: $("gate-title"),
+  gateDesc: $("gate-desc"),
+  downloadBtn: $("download-model"),
+  gateProgress: $("gate-progress"),
+  gateBarFill: $("gate-bar-fill"),
+  gatePct: $("gate-pct"),
+  gateError: $("gate-error"),
 };
 
 const state = {
   modelReady: false,
+  generating: false, // true from the moment Generate is pressed until settled
+  stopRequested: false,
   data: null,
+  modelName: "the model",
 };
 
 const galaxy = new Galaxy($("canvas"), {
@@ -39,11 +52,12 @@ const galaxy = new Galaxy($("canvas"), {
     els.status.textContent = text;
   },
   onRunStateChange: (running) => {
-    els.generate.disabled = running || !state.modelReady;
-    els.replay.disabled = running || !state.data;
-    els.cursor.style.display = running ? "inline" : "none";
-    // Once settled, make the sentence words clickable right away.
-    if (!running && state.data) renderCaptionTokens(null);
+    // Called by the renderer when the word-by-word animation starts (true) or
+    // ends — whether it finished on its own or was stopped (false).
+    if (!running) {
+      setGenerating(false);
+      if (state.data) renderCaptionTokens(null);
+    }
   },
   // A star was selected (or cleared) — re-render the caption as clickable
   // tokens and highlight the exact word that was selected.
@@ -115,12 +129,43 @@ function setLoading(on, text = "Thinking…") {
   els.loadingText.textContent = text;
 }
 
+/** Toggle the UI between idle and "generating" (inference + animation). */
+function setGenerating(on) {
+  state.generating = on;
+  els.generate.textContent = on ? "■ Stop" : "Generate";
+  els.generate.classList.toggle("stop", on);
+  els.generate.disabled = !state.modelReady; // stays clickable (to Stop)
+  els.prompt.disabled = on || !state.modelReady;
+  els.replay.disabled = on || !state.data;
+  els.cursor.style.display = on ? "inline" : "none";
+}
+
 function loadData(data) {
   state.data = data;
   galaxy.setData(data);
   syncLayerUI();
-  els.replay.disabled = false;
-  galaxy.play();
+  galaxy.play(); // plays the word-by-word animation; settles via onRunStateChange
+}
+
+/** Show the finished galaxy immediately (no animation) — used after a Stop. */
+function showFinalView(data) {
+  state.data = data;
+  galaxy.setData(data);
+  syncLayerUI();
+  galaxy.showFinal();
+}
+
+/** Stop an in-progress generation and jump to the explorable final view. */
+function requestStop() {
+  if (!state.generating) return;
+  state.stopRequested = true;
+  if (galaxy.running) {
+    galaxy.finish(); // animation playing → settle instantly
+  } else {
+    // Inference still running; it will settle shortly once the loop breaks.
+    els.generate.textContent = "Stopping…";
+    els.generate.disabled = true;
+  }
 }
 
 async function runGenerate() {
@@ -133,52 +178,94 @@ async function runGenerate() {
     els.status.textContent = "Type a prompt first.";
     return;
   }
+  state.stopRequested = false;
+  setGenerating(true);
   setLoading(true, "Running the model in your browser…");
-  els.generate.disabled = true;
   els.status.textContent = "";
   try {
-    const data = await generate(prompt);
-    loadData(data);
+    const data = await generate(prompt, { shouldStop: () => state.stopRequested });
+    setLoading(false);
+    if (state.stopRequested) {
+      showFinalView(data); // user asked to stop → settle right away
+    } else {
+      loadData(data); // play the animation
+    }
   } catch (err) {
+    setLoading(false);
     els.status.textContent = `Error: ${err.message}`;
     console.error(err);
-  } finally {
-    setLoading(false);
-    els.generate.disabled = false;
+    setGenerating(false);
   }
 }
 
 // -------------------------------------------------------------- controls
-els.generate.addEventListener("click", runGenerate);
-els.prompt.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !els.generate.disabled) runGenerate();
+els.generate.addEventListener("click", () => {
+  if (state.generating) requestStop();
+  else runGenerate();
 });
-els.replay.addEventListener("click", () => galaxy.replay());
+els.prompt.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !state.generating && state.modelReady) runGenerate();
+});
+els.replay.addEventListener("click", () => {
+  if (state.generating || !state.data) return;
+  state.stopRequested = false;
+  setGenerating(true);
+  galaxy.replay();
+});
+
+// -------------------------------------------------------------- model download
+async function downloadModel() {
+  els.gateError.hidden = true;
+  els.downloadBtn.hidden = true;
+  els.gateProgress.hidden = false;
+  els.gateBarFill.style.width = "0%";
+  els.gatePct.textContent = "Starting…";
+  try {
+    await initModel((frac) => {
+      const pct = Math.round(frac * 100);
+      els.gateBarFill.style.width = pct + "%";
+      els.gatePct.textContent = `Downloading… ${pct}%`;
+    });
+    state.modelReady = true;
+    els.modelGate.hidden = true;
+    setGenerating(false); // configures buttons for the ready state
+    els.status.textContent = `Ready — ${state.modelName} runs in your browser. Type a prompt and press Generate.`;
+  } catch (err) {
+    console.error(err);
+    els.gateProgress.hidden = true;
+    els.downloadBtn.hidden = false;
+    els.gateError.hidden = false;
+    els.gateError.textContent = `Download failed: ${err.message}. Please try again.`;
+  }
+}
+
+els.downloadBtn.addEventListener("click", downloadModel);
 
 // -------------------------------------------------------------- bootstrap
 async function init() {
   els.cursor.style.display = "none";
   els.prompt.disabled = true;
   els.generate.disabled = true;
+  els.replay.disabled = true;
 
-  // The galaxy starts empty — nothing runs until the user presses Generate.
-  // Download + warm up the in-browser model; progress shows in the status line.
+  // Fetch the tiny local metadata (NOT the big weights) so the gate can name the
+  // real model and layer count before the user commits to the download.
   try {
-    els.status.textContent = "Downloading model… 0%";
-    await initModel((frac) => {
-      els.status.textContent = `Downloading model… ${Math.round(frac * 100)}%`;
-    });
     const meta = await getMeta();
-    const modelName = String(meta.model).split("/").pop();
-    state.modelReady = true;
-    els.prompt.disabled = false;
-    els.generate.disabled = false;
-    els.prompt.placeholder = "Type a prompt, e.g. The mouse ran up the";
-    els.status.textContent = `Ready — ${modelName} runs in your browser. Type a prompt and press Generate.`;
+    state.modelName = String(meta.model).split("/").pop();
+    els.gateDesc.innerHTML =
+      `This visualizer runs <strong>${state.modelName}</strong> ` +
+      `(${meta.numLayers} attention layers) entirely in your browser. The weights ` +
+      `(~158&nbsp;MB) download once from the Hugging Face Hub, then everything runs ` +
+      `locally — no server, and nothing you type ever leaves your device.`;
+    els.downloadBtn.textContent = `Download ${state.modelName} · ~158 MB`;
   } catch (err) {
-    console.error(err);
-    els.status.textContent = "Model failed to load — " + err.message;
+    console.error("Could not read model metadata:", err);
+    // Keep the generic gate copy; the download button still works.
   }
+
+  // Show the gate — nothing downloads until the user clicks the button.
+  els.modelGate.hidden = false;
 }
 
 init();
