@@ -1,0 +1,10 @@
+{
+  "model": "HuggingFaceTB/SmolLM2-135M",
+  "numLayers": 30,
+  "defaultLayer": 15,
+  "file": "smollm2-135m-int8.onnx",
+  "hidden": 576,
+  "heads": 9,
+  "eos": 0,
+  "tokenizer": "tokenizer"
+}

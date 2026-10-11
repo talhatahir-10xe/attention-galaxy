@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Attention Galaxy</title>
+    <meta
+      name="description"
+      content="Watch a small language model think: it writes a sentence one word at a time, showing how it picks each word and why — as a galaxy of words wired by attention."
+    />
+  </head>
+  <body>
+    <div id="app">
+      <!-- Top bar -->
+      <header id="topbar">
+        <h1 id="brand">✦ Attention&nbsp;Galaxy</h1>
+        <div id="prompt-group">
+          <input
+            id="prompt"
+            type="text"
+            placeholder="The cat sat on the"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button id="generate">Generate</button>
+        </div>
+      </header>
+
+      <!-- Main canvas holds BOTH panels (prediction + galaxy) -->
+      <main id="stage">
+        <canvas id="canvas"></canvas>
+        <div id="loading" hidden><span class="spinner"></span><span id="loading-text">Thinking…</span></div>
+      </main>
+
+      <!-- Caption: the sentence builds here -->
+      <div id="caption"><span id="caption-text"></span><span id="cursor">▋</span></div>
+
+      <!-- Controls row -->
+      <footer id="controls">
+        <button id="replay">↺ Replay</button>
+        <div id="layer-group">
+          <label for="layer">Attention layer <span id="layer-value"></span></label>
+          <input id="layer" type="range" min="0" max="11" step="1" />
+          <span id="layer-descriptor"></span>
+        </div>
+        <span id="status"></span>
+      </footer>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

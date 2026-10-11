@@ -1,0 +1,7 @@
+# Build-time only — the app has NO backend and runs the model in the browser.
+# These are needed solely to (re)generate the ONNX model (scripts/export_onnx.py).
+torch>=2.1
+transformers==4.44.2      # 4.x GPT-2 exports cleanly to ONNX (5.x uses aten::diff)
+onnx>=1.16
+onnxruntime>=1.18
+onnxscript>=0.7

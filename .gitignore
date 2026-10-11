@@ -1,0 +1,18 @@
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+
+# Node / Vite
+frontend/node_modules/
+frontend/dist/
+
+# Large model weights — hosted externally (Hugging Face Hub), not in git.
+# Exceeds GitHub's 100 MB file limit; kept locally for `npm run dev`.
+frontend/public/model/*.onnx
+
+# OS / editors
+.DS_Store
+*.log
+.vscode/
+.idea/
