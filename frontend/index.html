@@ -35,11 +35,16 @@
         <div id="model-gate" hidden>
           <div class="gate-card">
             <div class="gate-icon">✦</div>
-            <h2 id="gate-title">Run the model in your browser</h2>
+            <h2 id="gate-title">See how the model predicts</h2>
             <p id="gate-desc">
-              This visualizer runs a small language model entirely in your browser.
-              The weights download once, then everything runs locally — no server,
-              and nothing you type ever leaves your device.
+              Watch a language model predict the next word — and see which earlier
+              words it paid attention to, drawn as a galaxy of connections with
+              clear percentages. Click any word to inspect exactly where its
+              attention went.
+              <span class="gate-note"
+                >A small model runs right in your browser — downloads once, then
+                it's cached.</span
+              >
             </p>
             <button id="download-model">Download model</button>
             <div id="gate-progress" hidden>

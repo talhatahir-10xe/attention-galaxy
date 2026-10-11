@@ -97,6 +97,46 @@ async function fetchWithProgress(url, onProgress) {
   return out.buffer;
 }
 
+// Persist the downloaded weights ourselves. The browser's HTTP cache is
+// unreliable for this file in production: Hugging Face's resolve/main URL
+// 302-redirects to a signed CDN URL that changes every request, so the HTTP
+// cache misses on every reload and re-downloads ~158 MB. The Cache Storage API,
+// keyed by the STABLE url, keeps it across reloads (and works offline after the
+// first load). Bump the version suffix to force a re-download after a model swap.
+const MODEL_CACHE = "attention-galaxy-model-v1";
+
+/**
+ * Return the model weights as an ArrayBuffer, served from our own persistent
+ * cache when available, otherwise downloaded (with progress) and then cached.
+ */
+async function fetchModelBuffer(url, onProgress) {
+  let cache = null;
+  try {
+    if (typeof caches !== "undefined") {
+      cache = await caches.open(MODEL_CACHE);
+      const hit = await cache.match(url);
+      if (hit) {
+        onProgress?.(1); // already local → straight to 100%
+        return await hit.arrayBuffer();
+      }
+    }
+  } catch (_) {
+    // Cache API unavailable (e.g. private window / insecure context) — just fetch.
+    cache = null;
+  }
+
+  const buf = await fetchWithProgress(url, onProgress);
+
+  // Store a copy for next time. new Response(buf) copies the bytes, so `buf`
+  // stays usable for the ONNX session below.
+  try {
+    if (cache) await cache.put(url, new Response(buf));
+  } catch (_) {
+    // Quota exceeded or other failure — harmless, the app still runs.
+  }
+  return buf;
+}
+
 /** Download + instantiate the ONNX session and tokenizer once (cached). */
 export async function initModel(onProgress) {
   if (!_sessionPromise) {
@@ -105,7 +145,7 @@ export async function initModel(onProgress) {
       const weightsUrl = MODEL_WEIGHTS_URL || MODEL_BASE + m.file;
       const [tokenizer, buf] = await Promise.all([
         AutoTokenizer.from_pretrained(m.tokenizer),
-        fetchWithProgress(weightsUrl, onProgress),
+        fetchModelBuffer(weightsUrl, onProgress),
       ]);
       _tokenizer = tokenizer;
       return ort.InferenceSession.create(buf, {

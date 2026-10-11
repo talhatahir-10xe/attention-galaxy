@@ -280,10 +280,13 @@ async function init() {
     const meta = await getMeta();
     state.modelName = String(meta.model).split("/").pop();
     els.gateDesc.innerHTML =
-      `This visualizer runs <strong>${state.modelName}</strong> ` +
-      `(${meta.numLayers} attention layers) entirely in your browser. The weights ` +
-      `(~158&nbsp;MB) download once from the Hugging Face Hub, then everything runs ` +
-      `locally — no server, and nothing you type ever leaves your device.`;
+      `Watch <strong>${state.modelName}</strong> continue your sentence one word ` +
+      `at a time — and see <strong>which earlier words it pays attention to</strong> ` +
+      `for each prediction, across its ${meta.numLayers} layers, drawn as a galaxy ` +
+      `of connections with clear percentages. Click any word to inspect exactly ` +
+      `where its attention went.` +
+      `<span class="gate-note">The model (~158&nbsp;MB) runs right in your ` +
+      `browser — downloads once, then it's cached.</span>`;
     els.downloadBtn.textContent = `Download ${state.modelName} · ~158 MB`;
   } catch (err) {
     console.error("Could not read model metadata:", err);

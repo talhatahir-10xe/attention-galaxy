@@ -2,35 +2,43 @@
 
 # ✦ Attention Galaxy
 
-**See a language model think — one word at a time, entirely in your browser.**
+**Watch a language model predict the next word — and *see* which earlier words it paid attention to.**
 
-A small transformer continues your prompt word by word. As it writes, the left
-panel shows *how* it chooses each word (the candidate probabilities) and the
-right-hand galaxy shows *why* — every word becomes a star, wired to the earlier
-words it paid attention to, each link labelled with a readable percentage.
+![Attention Galaxy demo](assets/tutorial.gif)
 
-[**▶ Live demo**](https://talhatahir-10xe.github.io/attention-galaxy/)
+Attention Galaxy turns a transformer's inner workings into something you can
+watch. Type a prompt and the model continues it one word at a time. For every
+word it predicts, you see the candidate words it considered and their
+probabilities — and, in the galaxy, exactly which earlier words it *attended to*
+to make that choice, each connection labelled with a clear percentage.
 
-No backend · no install · the model runs 100% client-side
+[**▶ Try the live demo**](https://talhatahir-10xe.github.io/attention-galaxy/)
+
+*A small 135M-parameter model runs right in your browser — no install, no sign-up.*
 
 </div>
 
 ---
 
-## Highlights
+## What you can do with it
 
-- **Runs in the browser.** Inference happens on your device via
-  [`onnxruntime-web`](https://onnxruntime.ai/docs/tutorials/web/) (WASM-CPU) —
-  nothing you type is sent anywhere.
-- **Real attention, not a mock-up.** A custom ONNX export surfaces the model's
-  per-layer attention weights, which are rendered faithfully as links between words.
-- **Watch it reason step by step.** Each word plays out the transformer's actual
-  mechanic: *ask → look back → predict → lock → fly.*
-- **Explore interactively.** Click any word to see exactly where its attention
-  went; scrub the layer slider to compare early (grammar), middle (meaning) and
-  late (summary) layers.
-- **Free to host.** A ~3 MB static site on GitHub Pages; the model is served from
-  the Hugging Face Hub.
+- **See attention, the real signal behind a prediction.** Every word becomes a
+  star, wired to the earlier words it looked back at — so you can see *which
+  tokens the model leaned on* to pick the next one, as a readable percentage.
+- **Watch each prediction unfold.** For every word: the model looks back at the
+  context, scores candidate next words, locks in a winner, and sends it into the
+  galaxy — the whole mechanic, step by step.
+- **Inspect any word.** Click a star (or a word in the sentence) to light up
+  exactly where *its* attention went, ranked by strength.
+- **Compare layers.** A transformer attends differently at each of its 30 layers
+  — early layers catch grammar, middle layers meaning, late layers summary.
+  Scrub the slider to see any single layer, or average them all.
+- **Cut through the noise.** Toggle off the "attention sink" (the first token that
+  soaks up attention everywhere) to reveal the connections that actually matter.
+
+Great for learning how transformers work, teaching attention, or just poking at a
+real model's reasoning — faithful **Level 1** interpretability: attention
+truthfully shows which earlier words the model used.
 
 ---
 
