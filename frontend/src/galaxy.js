@@ -6,9 +6,9 @@
  *                   or, in spotlight mode, the clicked word's attention list)
  *   - right (~66%): the galaxy (word-stars placed by meaning, wired by attention)
  *
- * One requestAnimationFrame loop drives a small plain state object. There is no
- * framework. The generation animation runs the per-word sequence described in
- * SPEC.md Section 3: ask -> gather -> predict -> lock -> fly.
+ * One requestAnimationFrame loop drives a small plain state object; there is no
+ * framework. Each predicted word plays out as a five-step sequence:
+ * ask -> gather -> predict -> lock -> fly.
  */
 
 // ---------------------------------------------------------------------------
@@ -120,7 +120,7 @@ export class Galaxy {
     this.dpr = 1;
 
     this.currentLayer = 0;
-    this.beautiful = true; // Phase 2 visuals on by default
+    this.beautiful = true; // richer glow + particle visuals on by default
     this.hideSink = false; // drop token 0 (the "attention sink") and renormalise
     this.avgLayers = true; // show attention averaged over ALL layers (default on)
 

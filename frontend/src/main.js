@@ -1,10 +1,11 @@
 /**
  * Wiring: DOM controls, the Galaxy renderer, and in-browser inference.
  *
- * There is no backend — the model runs in the browser (infer.js). The model is
- * downloaded only when the user asks for it (the first-run gate), and the galaxy
- * stays empty until the user presses Generate. While the model is predicting,
- * the Generate button becomes a Stop button that settles the view immediately.
+ * There is no backend — the model runs in the browser (infer.js). The weights
+ * are downloaded only when the visitor asks (the first-run gate), and the galaxy
+ * stays empty until Generate is pressed. While a sentence is being generated the
+ * Generate button becomes a Skip button, which jumps straight to the finished,
+ * explorable galaxy.
  */
 import "./style.css";
 import { Galaxy } from "./galaxy.js";

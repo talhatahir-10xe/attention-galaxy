@@ -14,6 +14,7 @@ frontend/public/model/*.onnx
 # Internal working notes — kept locally, not published to the repo.
 SPEC.md
 PROGRESS.md
+DEPLOY.md
 
 # OS / editors
 .DS_Store

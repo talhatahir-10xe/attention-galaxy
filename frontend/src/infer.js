@@ -1,11 +1,11 @@
 /**
- * In-browser inference — replaces the Python backend entirely.
+ * In-browser inference.
  *
- * Loads a custom int8 ONNX export of SmolLM2-135M (which exposes logits, token
- * embeddings AND per-layer attention) and runs it with onnxruntime-web on the
+ * Loads a custom int8 ONNX export of SmolLM2-135M — which exposes logits, token
+ * embeddings AND per-layer attention — and runs it with onnxruntime-web on the
  * WASM-CPU backend (reliable on laptops and phones alike). Tokenization uses the
- * model's own tokenizer via Transformers.js. The extraction loop produces the
- * same Section-8 JSON contract, so galaxy.js renders identically.
+ * model's own tokenizer via Transformers.js. Generation produces a plain JSON
+ * object (tokens, per-step candidates, attention, clusters) that galaxy.js draws.
  */
 import * as ort from "onnxruntime-web/wasm";
 import { AutoTokenizer, env as tjsEnv } from "@huggingface/transformers";
@@ -46,7 +46,7 @@ const CFG = {
   MAX_NEW_TOKENS_CAP: 40,
   TOP_K: 5,
   MAX_TOKENS_TOTAL: 48,
-  // Anti-repetition decoding — without this, greedy GPT-2 loops badly
+  // Anti-repetition decoding — without this, greedy decoding on a small model loops badly
   // ("a mouse with a mouse with a mouse"). These give coherent sentences while
   // staying deterministic (still greedy, just repetition-discouraged).
   REPETITION_PENALTY: 1.3,
@@ -273,8 +273,9 @@ async function runForward(session, ids) {
 }
 
 /**
- * Generate from a prompt entirely in the browser.
- * @returns {Promise<object>} Section-8 contract object
+ * Generate a continuation of `prompt` entirely in the browser.
+ * @returns {Promise<object>} the data the renderer needs: prompt, model,
+ *   numLayers, defaultLayer, tokens[], clusters, attention.byLayer[][][], steps[]
  */
 export async function generate(prompt, opts = {}) {
   const meta = await loadMeta();

@@ -36,9 +36,9 @@ to make that choice, each connection labelled with a clear percentage.
 - **Cut through the noise.** Toggle off the "attention sink" (the first token that
   soaks up attention everywhere) to reveal the connections that actually matter.
 
-Great for learning how transformers work, teaching attention, or just poking at a
-real model's reasoning — faithful **Level 1** interpretability: attention
-truthfully shows which earlier words the model used.
+Useful for learning how transformers work, teaching attention, or just poking at
+a real model's reasoning. The attention shown is the model's own — it faithfully
+reflects which earlier words it used, not an approximation.
 
 ---
 
@@ -111,10 +111,12 @@ This writes `*-int8.onnx` + `tokenizer/` + `model.json` into
 
 ## Deployment
 
-The site deploys to **GitHub Pages** for free; because the model exceeds GitHub's
-100 MB file limit, it's hosted separately on the **Hugging Face Hub** (CDN-backed,
-CORS-enabled). A GitHub Actions workflow builds and publishes on every push to
-`main`. Full walkthrough in **[DEPLOY.md](DEPLOY.md)**.
+The site is deployed to **GitHub Pages** by the included GitHub Actions workflow
+(`.github/workflows/deploy.yml`), which builds `frontend/` and publishes it on
+every push to `main`. Because the model file exceeds GitHub's 100 MB limit, the
+weights are hosted separately on the **Hugging Face Hub** (CDN-backed and
+CORS-enabled) and fetched at runtime — the model URL lives in `src/infer.js`. The
+published site itself is only a few MB, so it stays well within Pages' limits.
 
 ---
 

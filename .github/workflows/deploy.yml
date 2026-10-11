@@ -1,10 +1,10 @@
 name: Deploy to GitHub Pages
 
 # Builds the frontend and publishes it to GitHub Pages on every push to main.
-# The large model weights are NOT in the repo (see .gitignore); set a repository
-# variable VITE_MODEL_URL to the absolute URL of the .onnx on the Hugging Face
-# Hub (Settings → Secrets and variables → Actions → Variables). The build bakes
-# that URL in; the browser then fetches the weights from the Hub, not from Pages.
+# The model weights are not in the repo (see .gitignore) — the browser fetches
+# them at runtime from the Hugging Face Hub, using the URL in src/infer.js. To
+# host the weights elsewhere, set a repository variable VITE_MODEL_URL (Settings
+# → Secrets and variables → Actions → Variables) and the build uses that instead.
 
 on:
   push:

@@ -1,18 +1,21 @@
-"""Export a GPT-2-family model to ONNX for fully in-browser inference.
+"""Export a causal language model to ONNX for fully in-browser inference.
 
-The browser app needs three things the standard ONNX export does NOT provide:
-  * next-token logits        (candidates / probabilities / entropy)
-  * per-layer attention       (mean over heads is done later, in JS)
-  * token embeddings          (k-means colouring of the stars, done in JS)
+A standard ONNX export gives you next-token logits, but the visualizer also needs
+two things it does not provide:
 
-So we wrap the model and expose all three as graph outputs, export to fp32 ONNX
-(eager attention, so `output_attentions` is real), then dynamically quantise to
-int8 — small (~85MB) and reliable on both WASM-CPU and WebGPU, which is what we
-want for phones.
+  * per-layer attention weights  (shown as the links between words)
+  * token embeddings             (used to colour the stars by k-means cluster)
 
-Run from the `backend` dir (after `pip install -r requirements.txt onnx onnxruntime`):
+This script wraps the model to expose all three as graph outputs, exports to fp32
+ONNX with eager attention (so ``output_attentions`` returns real weights), then
+dynamically quantises the weights to int8 to keep the file small and fast on the
+WASM-CPU runtime used in the browser. The wrapper is architecture-agnostic, so
+GPT-2, Llama/SmolLM2, Qwen and similar models all export the same way.
 
-    python scripts/export_onnx.py
+Run from the ``backend`` directory, after installing the requirements:
+
+    python scripts/export_onnx.py                    # default: SmolLM2-135M
+    EXPORT_MODEL=gpt2 python scripts/export_onnx.py  # or any HF causal LM
 """
 
 from __future__ import annotations
